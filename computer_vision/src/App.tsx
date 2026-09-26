@@ -21,7 +21,7 @@ type Detection = {
 
 const API_URL = (import.meta.env.VITE_API_URL ?? (import.meta.env.DEV
   ? 'http://localhost:8000'
-  : '')).replace(/\/+$/, '')
+  : 'https://computer-vision-4n29.onrender.com')).replace(/\/+$/, '')
 const WS_URL = API_URL.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:')
 
 

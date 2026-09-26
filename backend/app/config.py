@@ -22,17 +22,19 @@ class Settings:
                 Path(__file__).resolve().parents[1] / self.model_path,
             )
         if self.allowed_origins is None:
+            configured_origins = os.getenv(
+                "ALLOWED_ORIGINS",
+                "http://localhost:5173,http://127.0.0.1:5173",
+            ).split(",")
             object.__setattr__(
                 self,
                 "allowed_origins",
                 [
                     origin.strip()
-                    for origin in os.getenv(
-                        "ALLOWED_ORIGINS",
-                        "http://localhost:5173,"
-                        "http://127.0.0.1:5173,"
+                    for origin in [
+                        *configured_origins,
                         "https://chreey-eye-detection.netlify.app",
-                    ).split(",")
+                    ]
                     if origin.strip()
                 ],
             )
