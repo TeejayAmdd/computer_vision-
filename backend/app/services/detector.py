@@ -1,4 +1,5 @@
 from io import BytesIO
+import logging
 from pathlib import Path
 from threading import Lock
 from typing import Any
@@ -18,6 +19,10 @@ from app.schemas.detection import (
 
 class InvalidImageError(ValueError):
     """Raised when an uploaded payload is not a readable image."""
+
+
+class ModelUnavailableError(RuntimeError):
+    """Raised when inference is requested before the YOLO model is available."""
 
 
 class Detector:
@@ -47,6 +52,7 @@ class Detector:
         self.confidence_threshold = confidence_threshold
         self.model: Any = None
         self.mode = "fallback"
+        self.load_error: str | None = None
         self._inference_lock = Lock()
 
     @property
@@ -56,20 +62,27 @@ class Detector:
     def load(self) -> None:
         can_download_default = self.model_path.name in {"yolo11n.pt", "yolov8n.pt"}
         if not self.model_path.exists() and not can_download_default:
+            self.load_error = f"Model file not found: {self.model_path}"
+            logging.error(self.load_error)
             return
         try:
             from ultralytics import YOLO
-  
+
             self.model = YOLO(str(self.model_path))
             self.mode = "yolo"
-        except (ImportError, OSError, RuntimeError):
+            self.load_error = None
+        except (ImportError, OSError, RuntimeError) as exc:
             self.model = None
             self.mode = "fallback"
+            self.load_error = f"{type(exc).__name__}: {exc}"
+            logging.exception("Could not load YOLO model from %s", self.model_path)
 
     def detect(self, image_bytes: bytes) -> list[Detection]:
         image = self._read_image(image_bytes)
         if self.model is None:
-            return []
+            raise ModelUnavailableError(
+                self.load_error or "The YOLO model is not loaded."
+            )
         return self._run_yolo(image)
 
     @staticmethod

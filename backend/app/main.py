@@ -7,7 +7,7 @@ from starlette.concurrency import run_in_threadpool
 
 from app.config import settings
 from app.schemas.detection import DetectionResponse
-from app.services.detector import Detector, InvalidImageError
+from app.services.detector import Detector, InvalidImageError, ModelUnavailableError
 
 detector = Detector(settings.model_path, settings.confidence_threshold)
 
@@ -35,11 +35,13 @@ app.add_middleware(
 
 
 @app.get("/health")
-def health() -> dict[str, str | bool]:
+def health() -> dict[str, str | bool | None]:
     return {
-        "status": "ok",
+        "status": "ok" if detector.is_loaded else "degraded",
         "model_loaded": detector.is_loaded,
         "detector_mode": detector.mode,
+        "model_path": str(detector.model_path),
+        "model_error": detector.load_error,
     }
 
 
@@ -56,6 +58,8 @@ async def detect(file: Annotated[UploadFile, File(description="Image frame to an
         detections = detector.detect(image_bytes)
     except InvalidImageError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ModelUnavailableError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=500, detail="Image detection failed.") from exc
 
@@ -93,6 +97,14 @@ async def detect_stream(websocket: WebSocket):
                 detections = await run_in_threadpool(detector.detect, frame)
             except InvalidImageError as exc:
                 await websocket.send_json({"type": "error", "detail": str(exc)})
+                continue
+            except ModelUnavailableError as exc:
+                await websocket.send_json(
+                    {
+                        "type": "error",
+                        "detail": f"Detector unavailable on the server: {exc}",
+                    }
+                )
                 continue
             except Exception:
                 await websocket.send_json(
