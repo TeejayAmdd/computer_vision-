@@ -22,7 +22,6 @@ type Detection = {
 const API_URL = (import.meta.env.VITE_API_URL ?? (import.meta.env.DEV
   ? 'http://localhost:8000'
   : 'https://computer-vision-4n29.onrender.com')).replace(/\/+$/, '')
-const WS_URL = API_URL.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:')
 
 
 function formatDetection(detection: Detection) {
@@ -39,7 +38,8 @@ function App() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
-  const socketRef = useRef<WebSocket | null>(null)
+  const pollingTimerRef = useRef<number | null>(null)
+  const detectionRequestedRef = useRef(false)
   const lastNarrationRef = useRef('')
   const [isCameraOn, setIsCameraOn] = useState(false)
   const [isDetecting, setIsDetecting] = useState(false)
@@ -57,8 +57,11 @@ function App() {
   }, [isDarkTheme])
 
   const stopCamera = useCallback(() => {
-    socketRef.current?.close()
-    socketRef.current = null
+    detectionRequestedRef.current = false
+    if (pollingTimerRef.current !== null) {
+      window.clearTimeout(pollingTimerRef.current)
+      pollingTimerRef.current = null
+    }
     streamRef.current?.getTracks().forEach((track) => track.stop())
     streamRef.current = null
     if (videoRef.current) videoRef.current.srcObject = null
@@ -78,30 +81,61 @@ function App() {
     [isMuted],
   )
 
-  const sendFrame = useCallback(async (socket: WebSocket) => {
+  const captureFrame = useCallback(async (): Promise<Blob | null> => {
     const video = videoRef.current
     const canvas = canvasRef.current
     if (
-      socket.readyState !== WebSocket.OPEN ||
       !video ||
       !canvas ||
       video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA ||
       video.videoWidth === 0 ||
       video.videoHeight === 0
-    ) return
+    ) return null
 
     canvas.width = video.videoWidth
     canvas.height = video.videoHeight
     canvas.getContext('2d')?.drawImage(video, 0, 0)
 
-    try {
-      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.8))
-      if (!blob || socket.readyState !== WebSocket.OPEN) return
-      socket.send(blob)
-    } catch {
-      setError('Could not capture a camera frame for the detector.')
-    }
+    return new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.8))
   }, [])
+
+  const pollDetection = useCallback(async () => {
+    if (!detectionRequestedRef.current) return
+
+    try {
+      const blob = await captureFrame()
+      if (!blob) {
+        setError('Could not capture a camera frame for the detector.')
+      } else {
+        const formData = new FormData()
+        formData.append('file', blob, 'camera-frame.jpg')
+        const response = await fetch(`${API_URL}/detect`, {
+          method: 'POST',
+          body: formData,
+        })
+        if (!response.ok) {
+          const detail = await response.text()
+          throw new Error(detail || `HTTP ${response.status}`)
+        }
+        const result = await response.json() as { detections?: Detection[] }
+        const nextDetections = result.detections ?? []
+        setDetections(nextDetections)
+        setLastUpdated(new Date())
+        narrate(nextDetections)
+        setError('')
+      }
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : 'Unknown detector error'
+      setError(`The Render detector request failed: ${detail}`)
+      detectionRequestedRef.current = false
+      setIsDetecting(false)
+      return
+    }
+
+    if (detectionRequestedRef.current) {
+      pollingTimerRef.current = window.setTimeout(() => void pollDetection(), 2500)
+    }
+  }, [captureFrame, narrate])
 
   const startCamera = async (): Promise<boolean> => {
     try {
@@ -122,8 +156,11 @@ function App() {
 
   const toggleDetection = async () => {
     if (isDetecting) {
-      socketRef.current?.close()
-      socketRef.current = null
+      detectionRequestedRef.current = false
+      if (pollingTimerRef.current !== null) {
+        window.clearTimeout(pollingTimerRef.current)
+        pollingTimerRef.current = null
+      }
       setIsDetecting(false)
       return
     }
@@ -136,52 +173,9 @@ function App() {
     }
 
     setError('')
+    detectionRequestedRef.current = true
     setIsDetecting(true)
-    let socket: WebSocket
-    try {
-      socket = new WebSocket(`${WS_URL}/ws/detect`)
-    } catch {
-      setIsDetecting(false)
-      setError('Could not connect to the detector. Check the deployed API URL.')
-      return
-    }
-    socketRef.current = socket
-    socket.binaryType = 'arraybuffer'
-    socket.onopen = () => {
-      void sendFrame(socket)
-    }
-    socket.onmessage = (event) => {
-      try {
-        const message = JSON.parse(event.data) as {
-          type: 'detections' | 'error'
-          detections?: Detection[]
-          detail?: string
-        }
-        if (message.type === 'error') {
-          setError(message.detail ?? 'The detector rejected the camera frame.')
-          socket.close()
-          return
-        }
-        const nextDetections = message.detections ?? []
-        setDetections(nextDetections)
-        setLastUpdated(new Date())
-        narrate(nextDetections)
-        setError('')
-        void sendFrame(socket)
-      } catch {
-        setError('The detector returned an invalid response.')
-      }
-    }
-    socket.onerror = () => {
-      setIsDetecting(false)
-      setError('The detector connection failed. Check Render health and the VITE_API_URL setting.')
-    }
-    socket.onclose = () => {
-      if (socketRef.current === socket) {
-        socketRef.current = null
-        setIsDetecting(false)
-      }
-    }
+    void pollDetection()
   }
 
   useEffect(() => () => stopCamera(), [stopCamera])
