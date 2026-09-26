@@ -94,3 +94,26 @@ $env:MODEL_PATH = "C:\Users\Teejay\Desktop\frontend_react\backend\training\runs\
 The utility expects each image to have a same-named `.xml` file, for example
 `images\frame-001.jpg` and `images\frame-001.xml`. Unknown XML classes are
 ignored, so pass every class you want to train with `--classes`.
+
+## Deployment configuration
+
+Render must expose the API on Render's assigned `PORT`. The repository
+contains a root `render.yaml` that installs the backend dependencies, starts
+Uvicorn with `0.0.0.0:$PORT`, and uses `/health` as the health check.
+
+In Netlify, set this build environment variable before deploying:
+
+```text
+VITE_API_URL=https://your-render-service.onrender.com
+```
+
+In Render, set:
+
+```text
+ALLOWED_ORIGINS=https://your-site.netlify.app
+```
+
+Use the exact public URLs, with no trailing slash. Netlify environment
+variables are embedded at build time, so redeploy Netlify after changing
+`VITE_API_URL`. The frontend uses `wss://` automatically for an HTTPS Render
+URL.

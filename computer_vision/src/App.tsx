@@ -19,10 +19,10 @@ type Detection = {
   box: { x1: number; y1: number; x2: number; y2: number }
 }
 
-const API_URL = import.meta.env.DEV
-  ? "http://localhost:8000"
-  : "https://computer-vision-4n29.onrender.com";
-const WS_URL = API_URL.replace(/^http/, 'ws')
+const API_URL = (import.meta.env.VITE_API_URL ?? (import.meta.env.DEV
+  ? 'http://localhost:8000'
+  : '')).replace(/\/+$/, '')
+const WS_URL = API_URL.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:')
 
 
 function formatDetection(detection: Detection) {
@@ -130,9 +130,21 @@ function App() {
 
     if (!isCameraOn && !(await startCamera())) return
 
+    if (!API_URL) {
+      setError('The production API is not configured. Set VITE_API_URL in Netlify and redeploy.')
+      return
+    }
+
     setError('')
     setIsDetecting(true)
-    const socket = new WebSocket(`${WS_URL}/ws/detect`)
+    let socket: WebSocket
+    try {
+      socket = new WebSocket(`${WS_URL}/ws/detect`)
+    } catch {
+      setIsDetecting(false)
+      setError('Could not connect to the detector. Check the deployed API URL.')
+      return
+    }
     socketRef.current = socket
     socket.binaryType = 'arraybuffer'
     socket.onopen = () => {
@@ -161,7 +173,7 @@ function App() {
     }
     socket.onerror = () => {
       setIsDetecting(false)
-      setError('The detector is unavailable. Start the FastAPI server and try again.')
+      setError('The detector connection failed. Check Render health and the VITE_API_URL setting.')
     }
     socket.onclose = () => {
       if (socketRef.current === socket) {
