@@ -21,7 +21,7 @@ type Detection = {
 
 const API_URL = import.meta.env.DEV
   ? "http://localhost:8000"
-  : "https://your-backend.onrender.com";
+  : "https://computer-vision-4n29.onrender.com";
 const WS_URL = API_URL.replace(/^http/, 'ws')
 
 
