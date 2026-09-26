@@ -59,7 +59,7 @@ class Detector:
             return
         try:
             from ultralytics import YOLO
-
+  
             self.model = YOLO(str(self.model_path))
             self.mode = "yolo"
         except (ImportError, OSError, RuntimeError):

@@ -30,6 +30,7 @@ class Settings:
                     for origin in os.getenv(
                         "ALLOWED_ORIGINS",
                         "http://localhost:5173,http://127.0.0.1:5173",
+                        "https://chreey-eye-detection.netlify.app",
                     ).split(",")
                     if origin.strip()
                 ],
