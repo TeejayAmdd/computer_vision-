@@ -136,26 +136,6 @@ function App() {
     }
 
     setError('')
-    try {
-      const healthResponse = await fetch(`${API_URL}/health`)
-      const health = await healthResponse.json() as {
-        status?: string
-        model_loaded?: boolean
-        model_error?: string | null
-      }
-      if (!healthResponse.ok || !health.model_loaded) {
-        setError(
-          health.model_error
-            ? `Render detector is unavailable: ${health.model_error}`
-            : 'Render is online, but the YOLO model is not loaded.',
-        )
-        return
-      }
-    } catch {
-      setError('Cannot reach the Render API. Check VITE_API_URL and the Render service.')
-      return
-    }
-
     setIsDetecting(true)
     let socket: WebSocket
     try {
