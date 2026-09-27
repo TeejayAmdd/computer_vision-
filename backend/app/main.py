@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+import logging
 from typing import Annotated
 
 from fastapi import FastAPI, File, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
@@ -10,6 +11,7 @@ from app.schemas.detection import DetectionResponse
 from app.services.detector import Detector, InvalidImageError, ModelUnavailableError
 
 detector = Detector(settings.model_path, settings.confidence_threshold)
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -55,12 +57,13 @@ async def detect(file: Annotated[UploadFile, File(description="Image frame to an
         raise HTTPException(status_code=400, detail="The uploaded image is empty.")
 
     try:
-        detections = detector.detect(image_bytes)
+        detections = await run_in_threadpool(detector.detect, image_bytes)
     except InvalidImageError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except ModelUnavailableError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except Exception as exc:
+        logger.exception("Image detection failed")
         raise HTTPException(status_code=500, detail="Image detection failed.") from exc
 
     return DetectionResponse(detections=detections)

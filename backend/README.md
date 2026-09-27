@@ -97,17 +97,18 @@ ignored, so pass every class you want to train with `--classes`.
 
 ## Deployment configuration
 
-Render must expose the API on Render's assigned `PORT`. The repository
-contains a root `render.yaml` that installs the backend dependencies, starts
-Uvicorn with `0.0.0.0:$PORT`, and uses `/health` as the health check.
+Railway exposes the API on its assigned `PORT`. The repository contains a root
+`railway.json` that installs the backend dependencies, starts Uvicorn with
+`0.0.0.0:$PORT`, uses `/health` as the health check, and restarts the service
+after a failed deployment.
 
 In Netlify, set this build environment variable before deploying:
 
 ```text
-VITE_API_URL=https://your-render-service.onrender.com
+VITE_API_URL=https://your-railway-service.up.railway.app
 ```
 
-In Render, set:
+In Railway, set:
 
 ```text
 ALLOWED_ORIGINS=https://your-site.netlify.app
@@ -115,5 +116,5 @@ ALLOWED_ORIGINS=https://your-site.netlify.app
 
 Use the exact public URLs, with no trailing slash. Netlify environment
 variables are embedded at build time, so redeploy Netlify after changing
-`VITE_API_URL`. The frontend uses `wss://` automatically for an HTTPS Render
-URL.
+`VITE_API_URL`. The Railway service must have a public domain enabled. The
+frontend uses `wss://` automatically for an HTTPS Railway URL.

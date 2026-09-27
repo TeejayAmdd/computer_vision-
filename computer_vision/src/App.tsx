@@ -21,7 +21,7 @@ type Detection = {
 
 const API_URL = (import.meta.env.VITE_API_URL ?? (import.meta.env.DEV
   ? 'http://localhost:8000'
-  : 'https://computer-vision-4n29.onrender.com')).replace(/\/+$/, '')
+  : '')).replace(/\/+$/, '')
 
 
 function formatDetection(detection: Detection) {
@@ -126,7 +126,7 @@ function App() {
       }
     } catch (error) {
       const detail = error instanceof Error ? error.message : 'Unknown detector error'
-      setError(`The Render detector request failed: ${detail}`)
+      setError(`The detector request failed: ${detail}`)
       detectionRequestedRef.current = false
       setIsDetecting(false)
       return
