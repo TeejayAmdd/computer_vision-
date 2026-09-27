@@ -63,9 +63,11 @@ calibrated stereo, LiDAR, or depth camera when reliable metric distances are
 required.
 
 The backend uses Ultralytics `yolo11n.pt` by default and downloads it into
-`backend/models/` on first startup. To use trained weights, set `MODEL_PATH` to
-the `.pt` file. If the configured model cannot be loaded, the API remains
-available in fallback mode and reports that mode through `/health`.
+`backend/models/` on first startup. Server deployments use
+`opencv-python-headless` so the detector does not require Linux GUI libraries.
+To use trained weights, set `MODEL_PATH` to the `.pt` file. If the configured
+model cannot be loaded, the API remains available in fallback mode and reports
+that mode through `/health`.
 
 ## Training a custom YOLO model
 

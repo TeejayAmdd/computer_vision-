@@ -21,7 +21,7 @@ type Detection = {
 
 const API_URL = (import.meta.env.VITE_API_URL ?? (import.meta.env.DEV
   ? 'http://localhost:8000'
-  : '')).replace(/\/+$/, '')
+  : 'https://computervision-production.up.railway.app')).replace(/\/+$/, '')
 
 
 function formatDetection(detection: Detection) {
