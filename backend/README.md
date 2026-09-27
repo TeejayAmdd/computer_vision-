@@ -99,11 +99,11 @@ ignored, so pass every class you want to train with `--classes`.
 
 ## Deployment configuration
 
-Railway exposes the API on its assigned `PORT`. The repository contains a root
-`railway.json`, `requirements.txt`, and `.python-version` so Railpack can
-identify the Python service from the repository root. Railway installs the
-backend dependencies, starts Uvicorn with `0.0.0.0:$PORT`, uses `/health` as
-the health check, and restarts the service after a failed deployment.
+Railway exposes the API on its assigned `PORT`. The repository contains a
+`Dockerfile` and `railway.json` so the Linux runtime includes the libraries
+required by OpenCV as well as the backend dependencies. The container starts
+Uvicorn with `0.0.0.0:$PORT`, uses `/health` as the health check, and restarts
+the service after a failed deployment.
 
 In Netlify, set this build environment variable before deploying:
 
